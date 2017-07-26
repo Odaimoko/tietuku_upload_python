@@ -6,7 +6,6 @@ sys.path.append('..')
 import const
 cf=const.createFile
 
-SUFFIX_LIST = []
 
 ##秘钥
 AccessKey = '4144791d6ba8303982b6c7b2cb963e693304e3d9'
@@ -100,7 +99,7 @@ def uppics(dirpath,files,config):
 	success = {}
 	failure = {}
 	params=getULparam(config)
-	print(dirpath,files,params)
+	print(dirpath,files)
 	for file in files:
 		di=uppic(dirpath,file,Token,config)
 		if not 'code' in di:
@@ -112,10 +111,12 @@ def uppics(dirpath,files,config):
 
 	
 
-def getPicsFromDir(dirpath):
+def getPicsFromDir(dirpath,config):
 	"""return files ending with pic extensions"""
 	l= os.listdir(dirpath)
-	return [m for m in l if m[m.rfind(".")+1:].lower() in SUFFIX_LIST]
+	return [m for m in l if m[m.rfind(".")+1:].lower() in config['SUFFIX_LIST'].split(',')]
+
+
 def getMdPics(result):
 	d = result.copy()
 	for k in d.keys():
@@ -127,22 +128,38 @@ def getMdPics(result):
 
 
 if __name__ == '__main__':
-	cf('success.json')
-	cf('fail.json')
-	cf('config.json')
-	SUFFIX_LIST=['png','gif','jpg','jpeg']
+	cf('success.json',initial="{}")
+	cf('failure.json',initial="{}")
+	cf('config.json',initial="{}")
 	with open("success.json", "r") as f:
 		suc = json.load(f)
-	with open("fail.json", "r") as f:
+	with open("failure.json", "r") as f:
 		fail = json.load(f)
 	with open("config.json", "r") as f:
 		config = json.load(f)
 
 	l=len(sys.argv)
-	print(l)
+	go=0
+	if l==1:
+		print('No dir to upload. Specify it.\nEg.: python3 pver.py /home/')
+		exit(1)
+	elif l==2:
+		if not os.path.exists(sys.argv[1]):
+			print('dir Not Found')
+			exit(1)
+		elif not os.path.isdir(sys.argv[1]):
+			print('Not a dir')
+			exit(1)
+		else:
+			go=1
+	if not go:
+		print("Something wrong happens. Bye.")
+		exit(1)
 	reuploadFailed(suc,fail,config)
-	dirp = '/Users/oda/Desktop/an/'
-	cur_suc,cur_fail = uppics(dirp,getPicsFromDir(dirp), config)
+	dirp = sys.argv[1]
+	if dirp[-1]!='/':
+		dirp+="/"
+	cur_suc,cur_fail = uppics(dirp, getPicsFromDir(dirp,config), config)
 	suc.update(cur_suc)
 	fail.update(cur_fail)
 	print()
@@ -151,7 +168,7 @@ if __name__ == '__main__':
 	print(getMdPics(suc))
 	with open("success.json","w") as f:
 		json.dump(suc,f,indent=4)
-	with open("fail.json","w") as f:
+	with open("failure.json","w") as f:
 		json.dump(fail,f,indent=4)
 
 """
