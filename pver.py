@@ -1,51 +1,55 @@
 # -*- coding: utf-8 -*-
 import time,json,base64,hmac,hashlib,requests
 import os,sys
-from functools import wraps
 sys.path.append('.')
 sys.path.append('..')
 import const
 cf=const.createFile
 
-SUFFIX_LIST = ['png','gif','jpg','jpeg']
+SUFFIX_LIST = []
 
 ##秘钥
 AccessKey = '4144791d6ba8303982b6c7b2cb963e693304e3d9'
 SecretKey = 'c0499802d3947cf3e765decedc767d15c1155a2b'
 
 ##预设变量，也可通过相册API获取
-album_id = 1334486;
-album_pages = 1;
-
-upurl="http://up.imgapi.com/"
-deadline = int(time.time())+ 60
-simple_par={ "deadline": deadline, "from": "file", "aid":album_id, "httptype":1}
-# simple_par={ "deadline": deadline, "action": "album", "aid":album_id, "page_no":1}
 
 
 def tob(args):
 	return bytes(args,encoding='utf=8')
 def tos(b):
 	return b.decode(encoding='utf-8')
+def getDDL():
+	return int(time.time())+ 60
+def getULparam(config):
+	aid=config['aid']
+	httptype = config['httptype']
+	fr = config['ul_from']
+	return { "deadline": getDDL(), "from": fr, "aid":aid, "httptype":httptype}
 
+album_id = 1334486
+album_pages = 1
 
+simple_par={ "deadline": getDDL(), "from": "file", "aid":album_id, "httptype":1}
+# simple_par={ "deadline": deadline, "action": "album", "aid":album_id, "page_no":1}
 
-def getToken(param):
-	jsoncode = json.dumps(simple_par).replace(' ','')
+def getToken(config):
+	jsoncode = json.dumps(getULparam(config)).replace(' ','')
 	# print(jsoncode)	# "deadline=1501001316&from=web&aid=1334486&httptype=1"
 	encodedParam = base64.b64encode(tob(jsoncode))
-	sign = hmac.new(tob(SecretKey), encodedParam, digestmod=hashlib.sha1).hexdigest()
+	sign = hmac.new(tob(config['SECRETKEY']), encodedParam, digestmod=hashlib.sha1).hexdigest()
 	# print(sign)  ce207b4e00cce93a1e0396fae637ac43c38640b0
 	encodedSign = base64.b64encode(tob(sign))
-	Token = AccessKey + ':' + tos(encodedSign) + ':' + tos(encodedParam)
+	Token = config['ACCESSKEY'] + ':' + tos(encodedSign) + ':' + tos(encodedParam)
 	return Token
 
-def uppic(dirpath,file, Token):
+def uppic(dirpath,file, Token,config):
 	"""
 	Upload one pic, return the result don't haddle error
 	@filepath the path to pic
 
 	"""
+	upurl = config['upurl']
 	filepath = dirpath + file
 	tkpar = {"Token": Token}
 	filetype = filepath[filepath.rfind(".") + 1:]
@@ -72,32 +76,33 @@ def uppic(dirpath,file, Token):
 	finally:
 		return di
 
-def reuploadFailed(suc,fail):
+def reuploadFailed(suc,fail,config):
 	for k in fail.keys():
 		if not os.path.exists(k):
 			del fail[k]
 		else:
 			h,t=os.path.split(k)
-			di=uppic(h,t,getToken(simple_par))
+			di=uppic(h,t,getToken(config),config)
 			if not 'code' in di:
 				di['updatetime'] = time.time() # used to calc if we need up it again
 				suc.update({k:di})
 				del fail[k]
 
-def uppics(dirpath,files,params):
+def uppics(dirpath,files,config):
 	"""
 	Take a list of filepath, use params to calculate token
 	up load all pics to one album, 
 	Return return info(dicts)
 	"""
 
-	Token = getToken(params)
+	Token = getToken(config)
 
 	success = {}
 	failure = {}
+	params=getULparam(config)
 	print(dirpath,files,params)
 	for file in files:
-		di=uppic(dirpath,file,Token)
+		di=uppic(dirpath,file,Token,config)
 		if not 'code' in di:
 			di['updatetime'] = time.time() # used to calc if we need up it again
 			success.update({dirpath+file:di})
@@ -124,15 +129,20 @@ def getMdPics(result):
 if __name__ == '__main__':
 	cf('success.json')
 	cf('fail.json')
-
+	cf('config.json')
+	SUFFIX_LIST=['png','gif','jpg','jpeg']
 	with open("success.json", "r") as f:
 		suc = json.load(f)
 	with open("fail.json", "r") as f:
 		fail = json.load(f)
-	print(suc, fail)
-	reuploadFailed(suc,fail)
+	with open("config.json", "r") as f:
+		config = json.load(f)
+
+	l=len(sys.argv)
+	print(l)
+	reuploadFailed(suc,fail,config)
 	dirp = '/Users/oda/Desktop/an/'
-	cur_suc,cur_fail = uppics(dirp,getPicsFromDir(dirp), simple_par)
+	cur_suc,cur_fail = uppics(dirp,getPicsFromDir(dirp), config)
 	suc.update(cur_suc)
 	fail.update(cur_fail)
 	print()
