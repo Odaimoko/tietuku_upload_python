@@ -193,15 +193,16 @@ if __name__ == '__main__':
 			h+='/'
 		with open(md,'r') as f:
 			con=f.read()
-		# with open(md, 'w+') as f:
 			for k,v in sucmd.items(): # k is already tail here
 				k=pathlib.PurePosixPath(k).stem # get rid of suffix
 				pt = re.compile(r'\[.*'+k+r'.*\]')
 				m=pt.findall(con)
 				if not m: # if m is true, which means it's already been processed
 					con=con.replace(k,v)
+		with open(md, 'w+') as f:
+			f.write(con)
 
-			print(con)
+		print(con)
 
 """
 # for page in range(1,album_pages+1):

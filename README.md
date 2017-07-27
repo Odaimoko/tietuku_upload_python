@@ -24,9 +24,11 @@
 
 ### 在命令行使用
 
-`python pver.py <dir>`
+`python pver.py <dir> <md>` 
 
-将绝对路径为dir的目录里所有后缀包含于SUFFIX_LIST的图片文件上传到你的key对应的相册里。成功和失败的结果会存储到`success.json`和`failure.json`里。
+【dir】必选。将绝对路径为dir的目录里所有后缀包含于SUFFIX_LIST的图片文件上传到你的key对应的相册里。成功和失败的结果会存储到`success.json`和`failure.json`里。
+
+【md】可选。如果声明了md，可以将md里与上传文件同名的字符串改为markdown格式的外链。
 
 ## 内容说明
 
