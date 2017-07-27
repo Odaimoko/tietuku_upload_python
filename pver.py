@@ -1,15 +1,11 @@
 # -*- coding: utf-8 -*-
 import time,json,base64,hmac,hashlib,requests
-import os,sys
+import os,sys,re,pathlib
+
+import const
 sys.path.append('.')
 sys.path.append('..')
-import const
 cf=const.createFile
-
-
-##秘钥
-AccessKey = '4144791d6ba8303982b6c7b2cb963e693304e3d9'
-SecretKey = 'c0499802d3947cf3e765decedc767d15c1155a2b'
 
 ##预设变量，也可通过相册API获取
 
@@ -51,7 +47,7 @@ def uppic(dirpath,file, Token,config):
 	upurl = config['upurl']
 	filepath = dirpath + file
 	tkpar = {"Token": Token}
-	filetype = filepath[filepath.rfind(".") + 1:]
+	filetype = pathlib.PurePosixPath(filepath).suffix.lower()[1:]  # suffix=.png
 	if filetype == 'jpg':
 		filetype = 'jpeg'
 
@@ -114,7 +110,7 @@ def uppics(dirpath,files,config):
 def getPicsFromDir(dirpath,config):
 	"""return files ending with pic extensions"""
 	l= os.listdir(dirpath)
-	return [m for m in l if m[m.rfind(".")+1:].lower() in config['SUFFIX_LIST'].split(',')]
+	return [m for m in l if pathlib.PurePosixPath(m).suffix.lower()[1:] in config['SUFFIX_LIST'].split(',')]
 
 
 def getMdPics(result):
@@ -125,6 +121,18 @@ def getMdPics(result):
 	return d
 
 
+def findPicInMd(dir,file,config):
+	with open(dir+file,"r") as f:
+		con = f.read()
+	newpics = set()
+	for suffix in config['SUFFIX_LIST']:
+		pat = re.compile(r'!\[.*\]\(pics/.*?\.'+suffix+'\)')
+		pics = pat.findall(con)
+		if pics:
+			for pic in pics:
+				idx = pic.find('pics')
+				newpics.add(pic[idx:-1])
+	return newpics
 
 
 if __name__ == '__main__':
@@ -139,11 +147,12 @@ if __name__ == '__main__':
 		config = json.load(f)
 
 	l=len(sys.argv)
+	print('argc =',l)
 	go=0
 	if l==1:
 		print('No dir to upload. Specify it.\nEg.: python3 pver.py /home/')
 		exit(1)
-	elif l==2:
+	elif l>=2:
 		if not os.path.exists(sys.argv[1]):
 			print('dir Not Found')
 			exit(1)
@@ -152,11 +161,18 @@ if __name__ == '__main__':
 			exit(1)
 		else:
 			go=1
+
+		if l==3:
+		# 	dir+md
+			go=2
+			md=sys.argv[2]
 	if not go:
 		print("Something wrong happens. Bye.")
 		exit(1)
 	reuploadFailed(suc,fail,config)
 	dirp = sys.argv[1]
+	cur_suc={}
+	cur_fail={}
 	if dirp[-1]!='/':
 		dirp+="/"
 	cur_suc,cur_fail = uppics(dirp, getPicsFromDir(dirp,config), config)
@@ -165,11 +181,27 @@ if __name__ == '__main__':
 	print()
 
 
-	print(getMdPics(suc))
 	with open("success.json","w") as f:
 		json.dump(suc,f,indent=4)
 	with open("failure.json","w") as f:
 		json.dump(fail,f,indent=4)
+
+	if l==3: # md's, replace pic with same name as those in success.json with ![name](url), no suffix
+		sucmd= getMdPics(suc)
+		h,t=os.path.split(md)
+		if len(h)>0 and h[-1]!='/':
+			h+='/'
+		with open(md,'r') as f:
+			con=f.read()
+		# with open(md, 'w+') as f:
+			for k,v in sucmd.items(): # k is already tail here
+				k=pathlib.PurePosixPath(k).stem # get rid of suffix
+				pt = re.compile(r'\[.*'+k+r'.*\]')
+				m=pt.findall(con)
+				if not m: # if m is true, which means it's already been processed
+					con=con.replace(k,v)
+
+			print(con)
 
 """
 # for page in range(1,album_pages+1):
