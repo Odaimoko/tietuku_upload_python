@@ -72,12 +72,12 @@ def uppic(dirpath,file, Token,config):
 		return di
 
 def reuploadFailed(suc,fail,config):
-	for k in fail.keys():
+	for k in list(fail.keys()):
 		if not os.path.exists(k):
 			del fail[k]
 		else:
 			h,t=os.path.split(k)
-			di=uppic(h,t,getToken(config),config)
+			di=uppic(h+"/",t,getToken(config),config)
 			if not 'code' in di:
 				di['updatetime'] = time.time() # used to calc if we need up it again
 				suc.update({k:di})
@@ -202,7 +202,7 @@ if __name__ == '__main__':
 		with open(md, 'w+') as f:
 			f.write(con)
 
-		print(con)
+		# print(con)
 
 """
 # for page in range(1,album_pages+1):
